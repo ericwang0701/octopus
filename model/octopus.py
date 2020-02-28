@@ -164,10 +164,8 @@ class Octopus(object):
 
         # betas
         self.betas = Dense(10, name='betas', trainable=False)(self.dense_merged)
-        print("debug_test1")
         with open(os.path.join(os.path.dirname(__file__), '../assets/smpl_sampling.pkl'), 'rb') as f:
             sampling = pkl.load(f,encoding='iso-8859-1')
-        print("debug_test2")
         M = sampling['meshes']
         U = sampling['up']
         D = sampling['down']
@@ -202,32 +200,28 @@ class Octopus(object):
         # we only need one instance per batch for laplace
         self.vertices_tposed = Lambda(lambda s: s[1], name='vertices_tposed')(smpls[0])
         vertices_naked = Lambda(lambda s: s[2], name='vertices_naked')(smpls[0])
-        print("debug3")
         def laplacian_function(x,faces=self.faces):v0,v1=x;return compute_laplacian_diff(v0, v1, faces)
         self.laplacian = Lambda(laplacian_function, name='laplacian')([self.vertices_tposed, vertices_naked])      
-        print("debug4")
         self.symmetry = NameLayer('symmetry')(self.vertices_tposed)
 
-        print("debug5")
         l = SmplBody25FaceLayer(theta_in_rodrigues=False, theta_is_perfect_rotmtx=False)
         kps = [NameLayer('kps_{}'.format(i))(l([p, self.betas, t]))
                for i, (p, t) in enumerate(zip(self.poses, self.ts))]
 
-        print("debug5_1")
         self.Js = [Lambda(lambda jj: jj[:, :25], name='J_reproj_{}'.format(i))(j) for i, j in enumerate(kps)]
         self.face_kps = [Lambda(lambda jj: jj[:, 25:], name='face_reproj_{}'.format(i))(j) for i, j in enumerate(kps)]
 
         self.repr_loss = reprojection([self.img_size, self.img_size],
                                       [self.img_size / 2., self.img_size / 2.],
                                       self.img_size, self.img_size)
-        print("debug5_2")
+
         renderer = RenderLayer(self.img_size, self.img_size, 1, np.ones((6890, 1)), np.zeros(1), self.faces,
                                [self.img_size, self.img_size], [self.img_size / 2., self.img_size / 2.],
                                name='render_layer')
-        print("debug5_3")
+
         self.rendered = [NameLayer('rendered_{}'.format(i))(renderer(v)) for i, v in enumerate(self.vertices)]
 
-        print("debug5_4")
+
         self.inference_model = Model(
             inputs=self.inputs,
             outputs=[self.vertices_tposed] + self.vertices + [self.betas, self.offsets] + self.poses + self.ts
@@ -238,11 +232,11 @@ class Octopus(object):
             outputs=self.Js
         )
 
-        print("debug5_5")
+
         opt_pose_loss = {'J_reproj_{}'.format(i): self.repr_loss for i in range(self.num)}
         self.opt_pose_model.compile(loss=opt_pose_loss, optimizer='adam')
 
-        print("debug5_6")
+
         self.opt_shape_model = Model(
             inputs=self.inputs,
             outputs=self.Js + self.face_kps + self.rendered + [self.symmetry, self.laplacian]
@@ -256,7 +250,7 @@ class Octopus(object):
             'laplacian': 100. * self.num,
             'symmetry': 50. * self.num,
         }
-        print("debug6")
+
         for i in range(self.num):
             opt_shape_loss['rendered_{}'.format(i)] = 'mse'
             opt_shape_weights['rendered_{}'.format(i)] = 1.
@@ -267,7 +261,7 @@ class Octopus(object):
             opt_shape_loss['face_reproj_{}'.format(i)] = self.repr_loss
             opt_shape_weights['face_reproj_{}'.format(i)] = 10. * self.num
 
-        print("debug7")
+
         self.opt_shape_model.compile(loss=opt_shape_loss, loss_weights=opt_shape_weights, optimizer='adam')
 
     def load(self, checkpoint_path):

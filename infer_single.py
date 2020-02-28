@@ -1,11 +1,13 @@
 import os
+import numpy as np
 import argparse
+import pickle
 import tensorflow as tf
-import keras.backend as K
-
+#import keras.backend as K
+import tensorflow.keras.backend as K
 from glob import glob
 
-from lib.io import openpose_from_file, read_segmentation, write_mesh
+from lib.io import openpose_from_file, read_segmentation, write_mesh, write_mesh2
 from model.octopus import Octopus
 
 
@@ -18,6 +20,7 @@ def main(weights, name, segm_dir, pose_dir, out_dir, opt_pose_steps, opt_shape_s
 
     K.set_session(tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))))
 
+    #print("num segm_files", len(segm_files))
     model = Octopus(num=len(segm_files))
     model.load(weights)
 
@@ -44,8 +47,21 @@ def main(weights, name, segm_dir, pose_dir, out_dir, opt_pose_steps, opt_shape_s
     print('Estimating shape...')
     pred = model.predict(segmentations, joints_2d)
 
-    write_mesh('{}/{}.obj'.format(out_dir, name), pred['vertices'][0], pred['faces'])
+    # Get the uv data
+    vt = np.load('assets/basicModel_vt.npy')
+    ft = np.load('assets/basicModel_ft.npy')
 
+    # write_mesh('{}/{}.obj'.format(out_dir, name), pred['vertices'][0], pred['faces'])
+    write_mesh2('{}/{}.obj'.format(out_dir, 'sample3'),pred['vertices'][0], pred['faces'], vt=vt, ft=ft)
+    width= 1080
+    height = 1080
+    camera_c = [540.0, 540.0]
+    camera_f = [1080, 1080]
+    vertices = pred['vertices']
+    data_to_save = {'width':width,'camera_c':camera_c,'vertices':vertices, 'camera_f':camera_f, 'height':height}
+    pickle_out = open("frame_data.pkl","wb")
+    pickle.dump(data_to_save, pickle_out, protocol=2)
+    pickle_out.close()
     print('Done.')
 
 
