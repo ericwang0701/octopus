@@ -1,15 +1,16 @@
 import keras.backend as K
 from keras.engine.topology import Layer
 from keras.layers import initializers, activations
-from util import sparse_dot_adj_batch
-
+#from tensorflow.keras import initializers, activations
+from .util import sparse_dot_adj_batch
+#initializations or initializers
 
 class GraphConvolution(Layer):
 
     def __init__(self, output_dim, support, activation=None, use_bias=True,
                  kernel_initializer='glorot_uniform', bias_initializer='zeros', **kwargs):
         self.output_dim = output_dim
-        self.support = support
+        self.support = list(support)
         self.activation = activations.get(activation)
         self.use_bias = use_bias
         self.kernel_initializer = initializers.get(kernel_initializer)
